@@ -69,5 +69,11 @@ if file_upload:
         st.bar_chart(df_instituicao.loc[date])
 
 
+    df_data = df.groupby(by="Data")[["Valor"]].sum()
+    df_data["lag_1"] = df_data["Valor"].shift(1)
+    df_data["Diferenca Mensal"] = df_data["Valor"] - df_data["lag_1"]
+    df_data["Média 6M Diferenca Mensal"] = df_data["Diferenca Mensal"].rolling(window=6).mean()
+    df_data["Média 12M Diferenca Mensal"] = df_data["Diferenca Mensal"].rolling(window=12).mean()
+    df_data["Média 24M Diferenca Mensal"] = df_data["Diferenca Mensal"].rolling(window=24).mean()
 
-            
+    st.dataframe(df_data, column_config=columns_fmt)
