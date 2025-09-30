@@ -1,6 +1,27 @@
 import streamlit as st
 import pandas as pd
 
+def calc_general_metrics(df):
+    df_data = df.groupby(by="Data")[["Valor"]].sum()
+    df_data["lag_1"] = df_data["Valor"].shift(1)
+
+    df_data["Diferenca Mensal Abs."] = df_data["Valor"] - df_data["lag_1"]
+    df_data["Média 6M Diferenca Mensal Abs."] = df_data["Diferenca Mensal Abs."].rolling(window=6).mean()
+    df_data["Média 12M Diferenca Mensal Abs."] = df_data["Diferenca Mensal Abs."].rolling(window=12).mean()
+    df_data["Média 24M Diferenca Mensal Abs."] = df_data["Diferenca Mensal Abs."].rolling(window=24).mean()
+    df_data["Diferenca Mensal Rel."] = df_data["Valor"] / df_data["lag_1"]
+    df_data["Evolução 6M total"] = df_data["Valor"].rolling(window=6).apply(lambda x: x[-1] - x[0])
+    df_data["Evolução 12M total"] = df_data["Valor"].rolling(window=12).apply(lambda x: x[-1] - x[0])
+    df_data["Evolução 24M total"] = df_data["Valor"].rolling(window=24).apply(lambda x: x[-1] - x[0])
+    df_data["Evolução Relativa 6M total"] = df_data["Valor"].rolling(window=6).apply(lambda x: x[-1] / x[0] - 1)
+    df_data["Evolução Relativa 12M total"] = df_data["Valor"].rolling(window=12).apply(lambda x: x[-1] / x[0] - 1)
+    df_data["Evolução Relativa 24M total"] = df_data["Valor"].rolling(window=24).apply(lambda x: x[-1] / x[0] - 1)
+
+    df_data = df_data.drop("lag_1", axis=1)
+    return df_data
+
+
+
 st.set_page_config(page_title="Finanças", page_icon="💰")
 
 st.title("Finanças")
@@ -69,11 +90,55 @@ if file_upload:
         st.bar_chart(df_instituicao.loc[date])
 
 
-    df_data = df.groupby(by="Data")[["Valor"]].sum()
-    df_data["lag_1"] = df_data["Valor"].shift(1)
-    df_data["Diferenca Mensal"] = df_data["Valor"] - df_data["lag_1"]
-    df_data["Média 6M Diferenca Mensal"] = df_data["Diferenca Mensal"].rolling(window=6).mean()
-    df_data["Média 12M Diferenca Mensal"] = df_data["Diferenca Mensal"].rolling(window=12).mean()
-    df_data["Média 24M Diferenca Mensal"] = df_data["Diferenca Mensal"].rolling(window=24).mean()
 
-    st.dataframe(df_data, column_config=columns_fmt)
+
+    df_stats = calc_general_metrics(df)
+
+    exp3 = st.expander("Estatísticas Gerais")
+
+    # Formatação das colunas por dicionário
+    columns_config = {  
+        "Valor" : st.column_config.NumberColumn("Valor", format="R$%.2f"),
+        "Diferenca Mensal Abs." : st.column_config.NumberColumn("Diferenca Mensal Abs.", format="R$%.2f"),
+        "Média 6M Diferenca Mensal Abs." : st.column_config.NumberColumn("Média 6M Diferenca Mensal Abs.", format="R$%.2f"),
+        "Média 12M Diferenca Mensal Abs." : st.column_config.NumberColumn("Média 12M Diferenca Mensal Abs.", format="R$%.2f"),
+        "Média 24M Diferenca Mensal Abs." : st.column_config.NumberColumn("Média 24M Diferenca Mensal Abs.", format="R$%.2f"),
+        "Evolução 6M total" : st.column_config.NumberColumn("Evolução 6M total", format="R$%.2f"),
+        "Evolução 12M total" : st.column_config.NumberColumn("Evolução 12M total", format="R$%.2f"),
+        "Evolução 24M total" : st.column_config.NumberColumn("Evolução 24M total", format="R$%.2f"),
+        "Diferenca Mensal Rel." : st.column_config.NumberColumn("Diferenca Mensal Rel.", format="percent"),
+        "Evolução Relativa 6M total" : st.column_config.NumberColumn("Evolução Relativa 6M total", format="percent"),
+        "Evolução Relativa 12M total" : st.column_config.NumberColumn("Evolução Relativa 12M total", format="percent"),
+        "Evolução Relativa 24M total" : st.column_config.NumberColumn("Evolução Relativa 24M total", format="percent")
+    }
+
+    exp3.dataframe(df_stats, column_config=columns_config)
+
+    tab_stats, tab_abs, tab_rel = exp3.tabs(tabs=["Dados", "Historico de Evolucao", "Crescimento Relativo"])
+
+    with tab_stats:
+        st.dataframe(df_stats, column_config=columns_config)
+
+    with tab_abs:
+        abs_cols = [
+            "Diferenca Mensal Abs.",
+            "Média 6M Diferenca Mensal Abs.",
+            "Média 12M Diferenca Mensal Abs.",
+            "Média 24M Diferenca Mensal Abs."
+        ]
+        st.line_chart(df_stats[abs_cols])
+
+    with tab_rel:
+        rel_cols = [
+            "Diferenca Mensal Rel.",
+            "Evolução Relativa 6M total",
+            "Evolução Relativa 12M total",
+            "Evolução Relativa 24M total"
+        ]
+        st.line_chart(df_stats[rel_cols])
+
+
+    
+
+
+    
