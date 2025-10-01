@@ -202,3 +202,16 @@ if file_upload:
                 st.markdown(f"**Patrimonio Estimado Pos Meta**: \n \n R${patrimonio_final: .2f}")
 
 
+        meses = pd.DataFrame({
+            "Data Referencia": [data_inicio_meta + pd.DateOffset(months=i) for i in range(1, 13)],
+            "Meta Mensal" : [round(meta_estipulada / 12, 2) for i in range(1, 13)]
+            })
+        meses["Data Referencia"] = meses["Data Referencia"].dt.strftime("%Y-%m")
+
+        df_patrimonio = df_stats.reset_index()[["Data", "Valor"]]
+        df_patrimonio["Data Referencia"] = pd.to_datetime(df_patrimonio["Data"]).dt.strftime("%Y-%m")
+        st.dataframe(df_patrimonio)
+        meses = meses.merge(df_patrimonio, how="left", on="Data Referencia")
+
+        st.dataframe(meses)
+        
