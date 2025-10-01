@@ -1,17 +1,17 @@
 import streamlit as st
 import pandas as pd
 import requests
+import datetime
 
+@st.cache_data(ttl="1day")
 def get_selic():
     url = "https://bcb.gov.br/api/servico/sitebcb/historicotaxasjuros"
     response = requests.get(url)
     df = pd.DataFrame(response.json()["conteudo"])
+    df["DataInicioVigencia"] = pd.to_datetime(df["DataInicioVigencia"]).dt.date
+    df["DataFimVigencia"] = pd.to_datetime(df["DataFimVigencia"]).dt.date
+    df["DataFimVigencia"] = df["DataFimVigencia"].fillna(datetime.datetime.today().date())
     return df
-
-# %%
-get_selic()
-# %%
-
 
 def calc_general_metrics(df):
     df_data = df.groupby(by="Data")[["Valor"]].sum()
@@ -33,6 +33,7 @@ def calc_general_metrics(df):
     return df_data
 
 st.set_page_config(page_title="Finanças", page_icon="💰")
+
 st.title("Finanças")
 st.write("Bem-vindo à seção de Finanças! Aqui você pode gerenciar suas finanças pessoais, acompanhar despesas e receitas, e muito mais.")
 
@@ -159,9 +160,7 @@ if file_upload:
         # data_filtrada = df_stats.index[filter_data][-1]
 
         # Opção de filtro sem boolean - diretamente na linha
-        data_filtrada = df_stats.index[df_stats.index <= data_inicio_meta][-1]
-
-        
+        data_filtrada = df_stats.index[df_stats.index <= data_inicio_meta][-1]    
 
         saçario_bruto = col2.number_input("Salario bruto", min_value=0., format="%.2f")
         salario_liq = col2.number_input("Salario liquido", min_value=0., format="%.2f")
@@ -169,20 +168,29 @@ if file_upload:
         valor_inicio = df_stats.loc[data_filtrada]["Valor"]
         col1.markdown(f"**Patrimonio no inicio da meta:** R${valor_inicio: .2f}")
 
-        selic = st.number_input("Taxa Selic", min_value=0., format="%.2f", value=15.0)
-        selic = selic / 100 
-        
+        selic_gov = get_selic()
+        filter_selic_date = (selic_gov["DataInicioVigencia"] < data_inicio_meta) & (selic_gov["DataFimVigencia"] > data_inicio_meta)
+        selic_default = selic_gov[filter_selic_date]["MetaSelic"].iloc[0]
+
+        selic = st.number_input("Taxa Selic", min_value=0., format="%.2f", value=selic_default)
+        selic_ano = selic / 100 
+        selic_mes = (selic_ano + 1) ** (1/12) - 1   
+
+        st.text(f"Selic anual: {100*selic_ano: .2f}%")
+        st.text(f"Selic mensal: {100*selic_mes: .2f}%")
+
+        rendimento_ano = valor_inicio * selic_ano
+        rendimento_mes = valor_inicio * selic_mes
+
         col1_pot, col2_pot = st.columns(2)
-        mensal = salario_liq - custo_fixo
-        anual = mensal * 12
-        
+        mensal = salario_liq - custo_fixo + valor_inicio * selic_mes
+        anual = 12*(salario_liq - custo_fixo) + valor_inicio * selic_ano
+
         with col1_pot.container(border=True):
-            st.markdown(f"**Potencial Arrecadacao Mes:**\n \n R${mensal: .2f}")
+            st.markdown(f"**Potencial Arrecadacao Mes:**\n \n R${mensal: .2f}", help=f"({salario_liq: .2f} + (-{custo_fixo: .2f}) + {rendimento_mes: .2f})")
 
         with col2_pot.container(border=True):
-            st.markdown(f"**Recadacao ano:**\n \n R${anual: .2f}")
-
-        
+            st.markdown(f"**Recadacao ano:**\n \n R${anual: .2f}", help=f"12*({salario_liq: .2f} + (-{custo_fixo: .2f})) + {rendimento_ano: .2f}")    
 
         with st.container(border=True):
             col1_meta, col2_meta = st.columns(2)
