@@ -1,5 +1,17 @@
 import streamlit as st
 import pandas as pd
+import requests
+
+def get_selic():
+    url = "https://bcb.gov.br/api/servico/sitebcb/historicotaxasjuros"
+    response = requests.get(url)
+    df = pd.DataFrame(response.json()["conteudo"])
+    return df
+
+# %%
+get_selic()
+# %%
+
 
 def calc_general_metrics(df):
     df_data = df.groupby(by="Data")[["Valor"]].sum()
@@ -20,10 +32,7 @@ def calc_general_metrics(df):
     df_data = df_data.drop("lag_1", axis=1)
     return df_data
 
-
-
 st.set_page_config(page_title="Finanças", page_icon="💰")
-
 st.title("Finanças")
 st.write("Bem-vindo à seção de Finanças! Aqui você pode gerenciar suas finanças pessoais, acompanhar despesas e receitas, e muito mais.")
 
@@ -160,12 +169,13 @@ if file_upload:
         valor_inicio = df_stats.loc[data_filtrada]["Valor"]
         col1.markdown(f"**Patrimonio no inicio da meta:** R${valor_inicio: .2f}")
 
+        selic = st.number_input("Taxa Selic", min_value=0., format="%.2f", value=15.0)
+        selic = selic / 100 
+        
         col1_pot, col2_pot = st.columns(2)
-
         mensal = salario_liq - custo_fixo
         anual = mensal * 12
         
-
         with col1_pot.container(border=True):
             st.markdown(f"**Potencial Arrecadacao Mes:**\n \n R${mensal: .2f}")
 
@@ -182,3 +192,5 @@ if file_upload:
             with col2_meta:
                 patrimonio_final = meta_estipulada + valor_inicio
                 st.markdown(f"**Patrimonio Estimado Pos Meta**: \n \n R${patrimonio_final: .2f}")
+
+
